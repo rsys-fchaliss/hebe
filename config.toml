@@ -1,0 +1,16 @@
+# =============================================================================
+# RVAMS Settings
+# =============================================================================
+
+[database]
+# database_connection [Mandatory]: This is variable which can be used to point 
+#the database so that hebe can reach.
+database_connection = "1.2.3.4:5060"
+
+
+# =============================================================================
+# Slack Integration
+# =============================================================================
+
+[slack]
+# webhook_endpoint = "https://hooks.slack.com/workflows/XYZ/ABC/123"
