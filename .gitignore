@@ -10,3 +10,5 @@ Cargo.lock
 *.md
 target
 *.lock
+/*.db
+/*.json
