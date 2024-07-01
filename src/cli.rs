@@ -4,6 +4,9 @@ use crate::db;
 use crate::trivy;
 use std::str::FromStr;
 
+use csv::WriterBuilder;
+use std::io;
+
 #[derive(Debug, Parser)]
 #[clap(
     name = "Hebe",
@@ -20,7 +23,13 @@ struct Opt {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Scan { image: String },
+    Scan {
+        image: String,
+    },
+    QueryVulnerabilities {
+        #[clap(long)]
+        image: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -30,8 +39,8 @@ enum OutputType {
 }
 
 pub struct CLIWrapper {
-    pub database: db::Database,
-    pub app: Opt,
+    database: db::Database,
+    app: Opt,
 }
 
 impl CLIWrapper {
@@ -45,10 +54,11 @@ impl CLIWrapper {
     pub fn execute(&self) -> () {
         match &self.app.command {
             Commands::Scan { image } => self.scan_and_persist(image),
+            Commands::QueryVulnerabilities { image } => self.query(image),
         }
     }
 
-    pub fn scan_and_persist(&self, image: &str) {
+    fn scan_and_persist(&self, image: &str) {
         let results = trivy::scan_image(image);
         for result in results {
             match result.vulnerabilities {
@@ -76,6 +86,22 @@ impl CLIWrapper {
                 }
                 None => println!("No vulnerabilities found"),
             }
+        }
+    }
+
+    fn query(&self, image: &Option<String>) {
+        if image.is_some() {
+            let cves = self.database.get_cves(&image.clone().unwrap());
+
+            let mut writer = WriterBuilder::new()
+                .has_headers(false)
+                .from_writer(io::stdout());
+
+            for record in cves {
+                let _ = writer.write_record(&[record]);
+            }
+
+            let _ = writer.flush();
         }
     }
 }

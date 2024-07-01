@@ -47,11 +47,7 @@ impl Database {
     ) -> Result<usize, Error> {
         return self.conn.execute(
             "INSERT OR IGNORE INTO cves(cve, package, fixed_version) VALUES (?1, ?2, ?3)",
-            params![
-                format!("{}", cve),
-                format!("{}", package),
-                format!("{}", fixed_version)
-            ],
+            params![cve, package, fixed_version],
         );
     }
 
@@ -64,10 +60,32 @@ impl Database {
         return self.conn.execute(
             "INSERT OR IGNORE INTO image_vulnerabilities(image, cve, installed_version) VALUES (?1, ?2, ?3)",
             params![
-                format!("{}", target),
-                format!("{}", cve),
-                format!("{}", installed_version)
+                target,
+                cve,
+                installed_version
             ],
         );
+    }
+
+    pub fn get_cves(&self, target: &str) -> Vec<String> {
+        let query_result = self
+            .conn
+            .prepare("SELECT cve FROM image_vulnerabilities where image=?1");
+
+        return match query_result {
+            Ok(mut statement) => statement
+                .query_map(params![target], |row| {
+                    let cve: String = row.get(0)?;
+                    Ok(cve)
+                })
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect(),
+
+            Err(e) => {
+                eprintln!("Cannot query rows {}", e);
+                return Vec::new();
+            }
+        };
     }
 }
