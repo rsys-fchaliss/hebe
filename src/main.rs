@@ -1,3 +1,4 @@
+mod cli;
 mod config;
 mod db;
 mod trivy;
@@ -8,6 +9,7 @@ use std::{fs::File, str::FromStr};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
+use cli::CLIWrapper;
 use dialoguer::{theme::ColorfulTheme, Select};
 use docx_rs::{Docx, Paragraph, Run};
 use reqwest::Client as ReqwestClient;
@@ -16,45 +18,6 @@ use spinoff::{spinners, Color, Spinner};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{filter::LevelFilter, EnvFilter, Layer};
-
-
-#[derive(Debug, Parser)]
-#[clap(
-    name = "Hebe",
-    version = "1.0",
-    author = "Hebe Team",
-    about = "Radisys Vulnerability Assessment Manager",
-    after_help = "Vulnerability Manager for details reachout x@radisys.com"
-)]
-
-struct Opt {
-    #[clap(short, long)]
-    input_config_file: String,
-
-    #[clap(
-        short,
-        long,
-        value_enum,
-        default_value = "Terminal",
-        ignore_case = true
-    )]
-    output_type: OutputType,
-
-    #[clap(short, long, default_value = "false")]
-    verbose: String,
-
-    #[clap(long)]
-    sbom: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
-enum OutputType {
-    Terminal,
-    Text,
-    Word,
-    Markdown,
-    Slack,
-}
 
 fn init_logging(log_level: &String, ansi_color: &bool, json_output: &bool) {
     let mut layers = Vec::new();
@@ -93,36 +56,16 @@ fn init_logging(log_level: &String, ansi_color: &bool, json_output: &bool) {
 #[tokio::main]
 async fn main() -> Result<()> {
     let service_settings = config::ServiceConfig::load()?;
-    init_logging(&service_settings.log.level, &service_settings.log.ansi_color, &service_settings.log.json_output);
+    init_logging(
+        &service_settings.log.level,
+        &service_settings.log.ansi_color,
+        &service_settings.log.json_output,
+    );
     tracing::info!("config: {:?}", service_settings);
-
     let database = db::Database::new(&service_settings.database.url).unwrap();
 
-    let (target, results) = trivy::scan_image(&service_settings.sbom.sbom_path);
-    for result in results {
-        match result.vulnerabilities {
-            Some(vulns) => {
-                for vuln in vulns {
-                    match database.insert_cve(
-                        &vuln.id,
-                        &vuln.package_name,
-                        &vuln
-                            .fixed_version
-                            .unwrap_or(String::from_str("NULL").unwrap()),
-                    ) {
-                        Ok(_) => {}
-                        Err(e) => eprintln!("Problem inserting row: {e:?}"),
-                    };
-
-                    match database.insert_vuln(&target, &vuln.id, &vuln.installed_version) {
-                        Ok(_) => {}
-                        Err(e) => eprintln!("Problem inserting row: {e:?}"),
-                    };
-                }
-            }
-            None => println!("No vulnerabilities found"),
-        }
-    }
+    let cli = CLIWrapper::new(database);
+    cli.execute();
 
     Ok(())
 }
