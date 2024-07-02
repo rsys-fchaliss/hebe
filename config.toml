@@ -8,6 +8,3 @@ url = "hebe.db"
 level = "INFO"
 json_output = false
 ansi_color = false 
-
-[sbom]
-sbom_path = "test.txt"
