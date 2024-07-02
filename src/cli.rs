@@ -3,6 +3,7 @@ use tabled::Table;
 
 use crate::db;
 use crate::trivy;
+use std::process::exit;
 use std::str::FromStr;
 
 #[derive(Parser)]
@@ -22,11 +23,14 @@ struct Opt {
 #[derive(Subcommand)]
 enum Commands {
     Scan {
+        #[clap(long)]
         image: String,
     },
     QueryVulnerabilities {
         #[clap(long)]
         image: Option<String>,
+        #[clap(long)]
+        cve: Option<String>,
     },
 }
 
@@ -52,7 +56,7 @@ impl CLIWrapper {
     pub fn execute(&self) -> () {
         match &self.app.command {
             Commands::Scan { image } => self.scan_and_persist(image),
-            Commands::QueryVulnerabilities { image } => self.query(image),
+            Commands::QueryVulnerabilities { image, cve } => self.query(image, cve),
         }
     }
 
@@ -88,10 +92,25 @@ impl CLIWrapper {
         }
     }
 
-    fn query(&self, image: &Option<String>) {
+    fn query(&self, image: &Option<String>, cve: &Option<String>) {
+        if image.is_some() && cve.is_some() {
+            eprintln!("Both image and cve are specified, please specify only one.");
+            exit(1);
+        }
+
+        if image.is_none() && cve.is_none() {
+            eprintln!("Neither of image or cve is specified, please specify one.");
+            exit(1);
+        }
+
         if image.is_some() {
             let cves = self.database.get_cves(&image.clone().unwrap());
             println!("{}", Table::new(cves).to_string());
+        }
+
+        if cve.is_some() {
+            let targets = self.database.get_targets_with_cve(&cve.clone().unwrap());
+            println!("{}", Table::new(targets).to_string());
         }
     }
 }

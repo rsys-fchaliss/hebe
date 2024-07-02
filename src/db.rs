@@ -1,18 +1,22 @@
 use rusqlite::{params, Connection, Error};
-use serde::Serialize;
 use tabled::Tabled;
 
 pub struct Database {
     conn: Connection,
 }
 
-#[derive(Serialize, Tabled)]
+#[derive(Tabled)]
 pub struct ImageQueryResult {
     cve: String,
     package: String,
     severity: String,
     installed_version: String,
     fixed_version: String,
+}
+
+#[derive(Tabled)]
+pub struct VulnerabilityQueryResult {
+    image: String,
 }
 
 impl Database {
@@ -99,6 +103,28 @@ impl Database {
                         installed_version: row.get(3)?,
                         fixed_version: row.get(4)?,
                     })
+                })
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect(),
+
+            Err(e) => {
+                eprintln!("Cannot query rows {}", e);
+                return Vec::new();
+            }
+        };
+    }
+
+    pub fn get_targets_with_cve(&self, target: &str) -> Vec<VulnerabilityQueryResult> {
+        let query_result = self.conn.prepare(
+            "SELECT image FROM image_vulnerabilities
+            WHERE cve=?1",
+        );
+
+        return match query_result {
+            Ok(mut statement) => statement
+                .query_map(params![target], |row| {
+                    Ok(VulnerabilityQueryResult { image: row.get(0)? })
                 })
                 .unwrap()
                 .filter_map(Result::ok)
