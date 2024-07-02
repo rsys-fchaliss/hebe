@@ -5,6 +5,6 @@
 url = "hebe.db"
 
 [log]
-level = "INFO"
+level = "WARN"
 json_output = false
 ansi_color = false 

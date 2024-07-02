@@ -1,13 +1,11 @@
 use clap::{Parser, Subcommand};
+use tabled::Table;
 
 use crate::db;
 use crate::trivy;
 use std::str::FromStr;
 
-use csv::WriterBuilder;
-use std::io;
-
-#[derive(Debug, Parser)]
+#[derive(Parser)]
 #[clap(
     name = "Hebe",
     version = "1.0",
@@ -21,7 +19,7 @@ struct Opt {
     pub command: Commands,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand)]
 enum Commands {
     Scan {
         image: String,
@@ -32,7 +30,7 @@ enum Commands {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 enum OutputType {
     CSV,
     TEXT,
@@ -70,6 +68,7 @@ impl CLIWrapper {
                             &vuln
                                 .fixed_version
                                 .unwrap_or(String::from_str("NULL").unwrap()),
+                            &vuln.severity,
                         ) {
                             Ok(_) => {}
                             Err(e) => eprintln!("Problem inserting row: {e:?}"),
@@ -84,7 +83,7 @@ impl CLIWrapper {
                         };
                     }
                 }
-                None => println!("No vulnerabilities found"),
+                None => println!("No vulnerabilities found in {}", result.target),
             }
         }
     }
@@ -92,16 +91,7 @@ impl CLIWrapper {
     fn query(&self, image: &Option<String>) {
         if image.is_some() {
             let cves = self.database.get_cves(&image.clone().unwrap());
-
-            let mut writer = WriterBuilder::new()
-                .has_headers(false)
-                .from_writer(io::stdout());
-
-            for record in cves {
-                let _ = writer.write_record(&[record]);
-            }
-
-            let _ = writer.flush();
+            println!("{}", Table::new(cves).to_string());
         }
     }
 }

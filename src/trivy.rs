@@ -37,6 +37,8 @@ pub struct Vulnerability {
     pub installed_version: String,
     #[serde(rename = "FixedVersion")]
     pub fixed_version: Option<String>,
+    #[serde(rename = "Severity")]
+    pub severity: String,
 }
 
 pub fn scan_image(image_name: &str) -> Vec<TrivyResult> {

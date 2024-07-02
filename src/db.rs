@@ -1,7 +1,18 @@
 use rusqlite::{params, Connection, Error};
+use serde::Serialize;
+use tabled::Tabled;
 
 pub struct Database {
     conn: Connection,
+}
+
+#[derive(Serialize, Tabled)]
+pub struct ImageQueryResult {
+    cve: String,
+    package: String,
+    severity: String,
+    installed_version: String,
+    fixed_version: String,
 }
 
 impl Database {
@@ -21,6 +32,7 @@ impl Database {
                 cve VARCHAR NOT NULL PRIMARY KEY,
                 package VARCHAR NOT NULL,
                 fixed_version VARCHAR,
+                severity VARCHAR NOT NULL,
                 ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
             [],
@@ -44,10 +56,11 @@ impl Database {
         cve: &str,
         package: &str,
         fixed_version: &str,
+        severity: &str,
     ) -> Result<usize, Error> {
         return self.conn.execute(
-            "INSERT OR IGNORE INTO cves(cve, package, fixed_version) VALUES (?1, ?2, ?3)",
-            params![cve, package, fixed_version],
+            "INSERT OR IGNORE INTO cves(cve, package, fixed_version, severity) VALUES (?1, ?2, ?3, ?4)",
+            params![cve, package, fixed_version, severity],
         );
     }
 
@@ -67,16 +80,25 @@ impl Database {
         );
     }
 
-    pub fn get_cves(&self, target: &str) -> Vec<String> {
-        let query_result = self
-            .conn
-            .prepare("SELECT cve FROM image_vulnerabilities where image=?1");
+    pub fn get_cves(&self, target: &str) -> Vec<ImageQueryResult> {
+        let query_result = self.conn.prepare(
+            "SELECT vulns.cve, package, severity, installed_version, fixed_version 
+            FROM image_vulnerabilities as vulns 
+            INNER JOIN cves 
+            ON cves.cve=vulns.cve 
+            WHERE image=?1",
+        );
 
         return match query_result {
             Ok(mut statement) => statement
                 .query_map(params![target], |row| {
-                    let cve: String = row.get(0)?;
-                    Ok(cve)
+                    Ok(ImageQueryResult {
+                        cve: row.get(0)?,
+                        package: row.get(1)?,
+                        severity: row.get(2)?,
+                        installed_version: row.get(3)?,
+                        fixed_version: row.get(4)?,
+                    })
                 })
                 .unwrap()
                 .filter_map(Result::ok)
