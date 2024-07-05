@@ -33,6 +33,8 @@ enum Commands {
         cve: Option<String>,
         #[clap(long)]
         severity: Option<String>,
+        #[clap(long)]
+        fix_version: Option<String>,
     },
     TriageVulnerability {
         #[clap(long)]
@@ -70,7 +72,8 @@ impl CLIWrapper {
                 image,
                 cve,
                 severity,
-            } => self.query(image, cve, severity),
+                fix_version,
+            } => self.query(image, cve, severity, fix_version),
             Commands::TriageVulnerability {
                 image,
                 cve,
@@ -109,15 +112,30 @@ impl CLIWrapper {
         }
     }
 
-    fn query(&self, image: &Option<String>, cve: &Option<String>, severity: &Option<String>) {
+    fn query(
+        &self,
+        image: &Option<String>,
+        cve: &Option<String>,
+        severity: &Option<String>,
+        fix_version: &Option<String>,
+    ) {
         if image.is_some() && cve.is_some() {
             eprintln!("Both image and cve are specified, please specify only one.");
             exit(1);
         }
 
-        if image.is_none() && cve.is_none() {
-            eprintln!("Neither of image or cve is specified, please specify one.");
+        if image.is_none() && cve.is_none() && fix_version.is_none() {
+            eprintln!("Neither of image or cve or fix-version is specified, please specify one.");
             exit(1);
+        }
+
+        if fix_version.is_some() {
+            let cves = self
+                .database
+                .get_cves_by_fix_version(&image, &fix_version.clone().unwrap());
+            println!("{}", Table::new(cves).to_string());
+
+            return;
         }
 
         if image.is_some() {
