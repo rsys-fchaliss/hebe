@@ -31,6 +31,8 @@ enum Commands {
         image: Option<String>,
         #[clap(long)]
         cve: Option<String>,
+        #[clap(long)]
+        severity: Option<String>,
     },
 }
 
@@ -56,7 +58,11 @@ impl CLIWrapper {
     pub fn execute(&self) -> () {
         match &self.app.command {
             Commands::Scan { image } => self.scan_and_persist(image),
-            Commands::QueryVulnerabilities { image, cve } => self.query(image, cve),
+            Commands::QueryVulnerabilities {
+                image,
+                cve,
+                severity,
+            } => self.query(image, cve, severity),
         }
     }
 
@@ -92,7 +98,7 @@ impl CLIWrapper {
         }
     }
 
-    fn query(&self, image: &Option<String>, cve: &Option<String>) {
+    fn query(&self, image: &Option<String>, cve: &Option<String>, severity: &Option<String>) {
         if image.is_some() && cve.is_some() {
             eprintln!("Both image and cve are specified, please specify only one.");
             exit(1);
@@ -104,7 +110,7 @@ impl CLIWrapper {
         }
 
         if image.is_some() {
-            let cves = self.database.get_cves(&image.clone().unwrap());
+            let cves = self.database.get_cves(&image.clone().unwrap(), &severity);
             println!("{}", Table::new(cves).to_string());
         }
 

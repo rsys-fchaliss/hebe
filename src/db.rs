@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use rusqlite::{params, Connection, Error};
 use tabled::Tabled;
 
@@ -84,26 +86,33 @@ impl Database {
         );
     }
 
-    pub fn get_cves(&self, target: &str) -> Vec<ImageQueryResult> {
+    pub fn get_cves(&self, target: &str, severity: &Option<String>) -> Vec<ImageQueryResult> {
         let query_result = self.conn.prepare(
             "SELECT vulns.cve, package, severity, installed_version, fixed_version 
             FROM image_vulnerabilities as vulns 
             INNER JOIN cves 
             ON cves.cve=vulns.cve 
-            WHERE image=?1",
+            WHERE image=?1 
+            AND severity LIKE ?2",
         );
 
         return match query_result {
             Ok(mut statement) => statement
-                .query_map(params![target], |row| {
-                    Ok(ImageQueryResult {
-                        cve: row.get(0)?,
-                        package: row.get(1)?,
-                        severity: row.get(2)?,
-                        installed_version: row.get(3)?,
-                        fixed_version: row.get(4)?,
-                    })
-                })
+                .query_map(
+                    params![
+                        target,
+                        severity.clone().unwrap_or(String::from_str("%").unwrap())
+                    ],
+                    |row| {
+                        Ok(ImageQueryResult {
+                            cve: row.get(0)?,
+                            package: row.get(1)?,
+                            severity: row.get(2)?,
+                            installed_version: row.get(3)?,
+                            fixed_version: row.get(4)?,
+                        })
+                    },
+                )
                 .unwrap()
                 .filter_map(Result::ok)
                 .collect(),
