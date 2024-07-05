@@ -14,6 +14,7 @@ pub struct ImageQueryResult {
     severity: String,
     installed_version: String,
     fixed_version: String,
+    expected_image_fix_version: String,
 }
 
 #[derive(Tabled)]
@@ -49,6 +50,7 @@ impl Database {
                 image VARCHAR NOT NULL,
                 cve VARCHAR NOT NULL,
                 installed_version VARCHAR NOT NULL,
+                expected_image_fix_version VARCHAR,
                 ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (image, cve),
                 FOREIGN KEY (cve) REFERENCES cves (cve)
@@ -88,7 +90,7 @@ impl Database {
 
     pub fn get_cves(&self, target: &str, severity: &Option<String>) -> Vec<ImageQueryResult> {
         let query_result = self.conn.prepare(
-            "SELECT vulns.cve, package, severity, installed_version, fixed_version 
+            "SELECT vulns.cve, package, severity, installed_version, fixed_version, expected_image_fix_version
             FROM image_vulnerabilities as vulns 
             INNER JOIN cves 
             ON cves.cve=vulns.cve 
@@ -110,6 +112,7 @@ impl Database {
                             severity: row.get(2)?,
                             installed_version: row.get(3)?,
                             fixed_version: row.get(4)?,
+                            expected_image_fix_version: row.get(5).unwrap_or_default(),
                         })
                     },
                 )
@@ -144,5 +147,19 @@ impl Database {
                 return Vec::new();
             }
         };
+    }
+
+    pub fn triage_vuln(
+        &self,
+        cve: &str,
+        image: &str,
+        expected_fix_version: &str,
+    ) -> Result<usize, Error> {
+        return self.conn.execute(
+            "UPDATE image_vulnerabilities 
+                SET expected_image_fix_version=?1
+                WHERE cve=?2 AND image=?3",
+            params![expected_fix_version, cve, image],
+        );
     }
 }

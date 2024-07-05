@@ -34,6 +34,14 @@ enum Commands {
         #[clap(long)]
         severity: Option<String>,
     },
+    TriageVulnerability {
+        #[clap(long)]
+        image: String,
+        #[clap(long)]
+        cve: String,
+        #[clap(long)]
+        version: String,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -63,6 +71,11 @@ impl CLIWrapper {
                 cve,
                 severity,
             } => self.query(image, cve, severity),
+            Commands::TriageVulnerability {
+                image,
+                cve,
+                version,
+            } => self.triage_vulnerability(image, cve, version),
         }
     }
 
@@ -75,9 +88,7 @@ impl CLIWrapper {
                         match &self.database.insert_cve(
                             &vuln.id,
                             &vuln.package_name,
-                            &vuln
-                                .fixed_version
-                                .unwrap_or(String::from_str("NULL").unwrap()),
+                            &vuln.fixed_version.unwrap_or(String::from_str("").unwrap()),
                             &vuln.severity,
                         ) {
                             Ok(_) => {}
@@ -118,5 +129,12 @@ impl CLIWrapper {
             let targets = self.database.get_targets_with_cve(&cve.clone().unwrap());
             println!("{}", Table::new(targets).to_string());
         }
+    }
+
+    fn triage_vulnerability(&self, image: &str, cve: &str, version: &str) {
+        match &self.database.triage_vuln(cve, image, version) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Problem inserting row: {e:?}"),
+        };
     }
 }
