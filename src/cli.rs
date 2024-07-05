@@ -106,8 +106,15 @@ impl CLIWrapper {
                             Err(e) => eprintln!("Problem inserting row: {e:?}"),
                         };
                     }
+
+                    self.query(
+                        &Option::Some(String::from_str(image).unwrap()),
+                        &Option::None,
+                        &Option::None,
+                        &Option::None,
+                    );
                 }
-                None => println!("No vulnerabilities found in {}", result.target),
+                None => println!(),
             }
         }
     }
@@ -154,5 +161,12 @@ impl CLIWrapper {
             Ok(_) => {}
             Err(e) => eprintln!("Problem inserting row: {e:?}"),
         };
+
+        self.query(
+            &Option::Some(String::from_str(image).unwrap()),
+            &Option::None,
+            &Option::None,
+            &Option::Some(String::from_str(version).unwrap()),
+        );
     }
 }
