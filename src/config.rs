@@ -1,12 +1,11 @@
+use anyhow::Result;
 use config::Config;
 use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ServiceConfig {
     pub database: Database,
     pub log: Log,
-    pub sbom: Sbom,
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
@@ -19,11 +18,6 @@ pub struct Log {
 #[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Database {
     pub url: String,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct Sbom{
-    pub sbom_path: String,
 }
 
 impl ServiceConfig {

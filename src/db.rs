@@ -1,7 +1,22 @@
 use rusqlite::{params, Connection, Error};
+use tabled::Tabled;
 
 pub struct Database {
     conn: Connection,
+}
+
+#[derive(Tabled)]
+pub struct ImageQueryResult {
+    cve: String,
+    package: String,
+    severity: String,
+    installed_version: String,
+    fixed_version: String,
+}
+
+#[derive(Tabled)]
+pub struct VulnerabilityQueryResult {
+    image: String,
 }
 
 impl Database {
@@ -21,6 +36,7 @@ impl Database {
                 cve VARCHAR NOT NULL PRIMARY KEY,
                 package VARCHAR NOT NULL,
                 fixed_version VARCHAR,
+                severity VARCHAR NOT NULL,
                 ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )",
             [],
@@ -44,14 +60,11 @@ impl Database {
         cve: &str,
         package: &str,
         fixed_version: &str,
+        severity: &str,
     ) -> Result<usize, Error> {
         return self.conn.execute(
-            "INSERT OR IGNORE INTO cves(cve, package, fixed_version) VALUES (?1, ?2, ?3)",
-            params![
-                format!("{}", cve),
-                format!("{}", package),
-                format!("{}", fixed_version)
-            ],
+            "INSERT OR IGNORE INTO cves(cve, package, fixed_version, severity) VALUES (?1, ?2, ?3, ?4)",
+            params![cve, package, fixed_version, severity],
         );
     }
 
@@ -64,10 +77,63 @@ impl Database {
         return self.conn.execute(
             "INSERT OR IGNORE INTO image_vulnerabilities(image, cve, installed_version) VALUES (?1, ?2, ?3)",
             params![
-                format!("{}", target),
-                format!("{}", cve),
-                format!("{}", installed_version)
+                target,
+                cve,
+                installed_version
             ],
         );
+    }
+
+    pub fn get_cves(&self, target: &str) -> Vec<ImageQueryResult> {
+        let query_result = self.conn.prepare(
+            "SELECT vulns.cve, package, severity, installed_version, fixed_version 
+            FROM image_vulnerabilities as vulns 
+            INNER JOIN cves 
+            ON cves.cve=vulns.cve 
+            WHERE image=?1",
+        );
+
+        return match query_result {
+            Ok(mut statement) => statement
+                .query_map(params![target], |row| {
+                    Ok(ImageQueryResult {
+                        cve: row.get(0)?,
+                        package: row.get(1)?,
+                        severity: row.get(2)?,
+                        installed_version: row.get(3)?,
+                        fixed_version: row.get(4)?,
+                    })
+                })
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect(),
+
+            Err(e) => {
+                eprintln!("Cannot query rows {}", e);
+                return Vec::new();
+            }
+        };
+    }
+
+    pub fn get_targets_with_cve(&self, target: &str) -> Vec<VulnerabilityQueryResult> {
+        let query_result = self.conn.prepare(
+            "SELECT image FROM image_vulnerabilities
+            WHERE cve=?1",
+        );
+
+        return match query_result {
+            Ok(mut statement) => statement
+                .query_map(params![target], |row| {
+                    Ok(VulnerabilityQueryResult { image: row.get(0)? })
+                })
+                .unwrap()
+                .filter_map(Result::ok)
+                .collect(),
+
+            Err(e) => {
+                eprintln!("Cannot query rows {}", e);
+                return Vec::new();
+            }
+        };
     }
 }

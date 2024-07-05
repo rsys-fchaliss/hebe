@@ -1,13 +1,13 @@
-cargo-features = ["edition2024"]
 [package]
 name = "hebe"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0.86"
 clap = { version = "4.5.7", features = ["cargo", "debug", "derive", "env", "string"] }
 config = "0.14.0"
+csv = "1.3.0"
 derive = "1.0.0"
 dialoguer = "0.11.0"
 docx-rs = "0.4.17"
@@ -19,3 +19,4 @@ serde = "1.0.203"
 rusqlite = "0.31.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
+tabled = "0.15"

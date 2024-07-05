@@ -37,31 +37,28 @@ pub struct Vulnerability {
     pub installed_version: String,
     #[serde(rename = "FixedVersion")]
     pub fixed_version: Option<String>,
+    #[serde(rename = "Severity")]
+    pub severity: String,
 }
 
-pub fn scan_image(sbom_path: &str) -> (String, Vec<TrivyResult>) {
-    let sbom: SBOM = serde_json::from_str(&fs::read_to_string(sbom_path).unwrap())
-        .expect("Failed to parse SBOM");
-
-    let image_name = sbom.packages.get(0).unwrap().name.clone();
-
+pub fn scan_image(image_name: &str) -> Vec<TrivyResult> {
     let output = Command::new("trivy")
-        .arg("sbom")
+        .arg("image")
         .arg("-f")
         .arg("json")
-        .arg(sbom_path)
+        .arg(image_name)
         .output()
         .expect("Failed to execute Trivy");
 
     if output.status.success() {
         let output: TrivyOutput =
             serde_json::from_slice(&output.stdout).expect("Failed to parse Trivy JSON output");
-        return (image_name, output.results);
+        return output.results;
     } else {
         eprintln!(
             "Trivy scan failed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
-        return (image_name, vec![]);
+        return vec![];
     }
 }
