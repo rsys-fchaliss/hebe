@@ -1,13 +1,13 @@
 use serde::Deserialize;
 
-use std::fs::{self};
 use std::process::Command;
-
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct SBOM {
     pub packages: Vec<SBOMPackage>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct SBOMPackage {
     pub name: String,
