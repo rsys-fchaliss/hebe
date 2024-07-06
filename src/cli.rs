@@ -31,6 +31,18 @@ enum Commands {
         image: Option<String>,
         #[clap(long)]
         cve: Option<String>,
+        #[clap(long)]
+        severity: Option<String>,
+        #[clap(long)]
+        fix_version: Option<String>,
+    },
+    TriageVulnerability {
+        #[clap(long)]
+        image: String,
+        #[clap(long)]
+        cve: String,
+        #[clap(long)]
+        version: String,
     },
 }
 
@@ -56,7 +68,17 @@ impl CLIWrapper {
     pub fn execute(&self) -> () {
         match &self.app.command {
             Commands::Scan { image } => self.scan_and_persist(image),
-            Commands::QueryVulnerabilities { image, cve } => self.query(image, cve),
+            Commands::QueryVulnerabilities {
+                image,
+                cve,
+                severity,
+                fix_version,
+            } => self.query(image, cve, severity, fix_version),
+            Commands::TriageVulnerability {
+                image,
+                cve,
+                version,
+            } => self.triage_vulnerability(image, cve, version),
         }
     }
 
@@ -69,9 +91,7 @@ impl CLIWrapper {
                         match &self.database.insert_cve(
                             &vuln.id,
                             &vuln.package_name,
-                            &vuln
-                                .fixed_version
-                                .unwrap_or(String::from_str("NULL").unwrap()),
+                            &vuln.fixed_version.unwrap_or(String::from_str("").unwrap()),
                             &vuln.severity,
                         ) {
                             Ok(_) => {}
@@ -86,25 +106,47 @@ impl CLIWrapper {
                             Err(e) => eprintln!("Problem inserting row: {e:?}"),
                         };
                     }
+
+                    self.query(
+                        &Option::Some(String::from_str(image).unwrap()),
+                        &Option::None,
+                        &Option::None,
+                        &Option::None,
+                    );
                 }
-                None => println!("No vulnerabilities found in {}", result.target),
+                None => println!(),
             }
         }
     }
 
-    fn query(&self, image: &Option<String>, cve: &Option<String>) {
+    fn query(
+        &self,
+        image: &Option<String>,
+        cve: &Option<String>,
+        severity: &Option<String>,
+        fix_version: &Option<String>,
+    ) {
         if image.is_some() && cve.is_some() {
             eprintln!("Both image and cve are specified, please specify only one.");
             exit(1);
         }
 
-        if image.is_none() && cve.is_none() {
-            eprintln!("Neither of image or cve is specified, please specify one.");
+        if image.is_none() && cve.is_none() && fix_version.is_none() {
+            eprintln!("Neither of image or cve or fix-version is specified, please specify one.");
             exit(1);
         }
 
+        if fix_version.is_some() {
+            let cves = self
+                .database
+                .get_cves_by_fix_version(&image, &fix_version.clone().unwrap());
+            println!("{}", Table::new(cves).to_string());
+
+            return;
+        }
+
         if image.is_some() {
-            let cves = self.database.get_cves(&image.clone().unwrap());
+            let cves = self.database.get_cves(&image.clone().unwrap(), &severity);
             println!("{}", Table::new(cves).to_string());
         }
 
@@ -112,5 +154,19 @@ impl CLIWrapper {
             let targets = self.database.get_targets_with_cve(&cve.clone().unwrap());
             println!("{}", Table::new(targets).to_string());
         }
+    }
+
+    fn triage_vulnerability(&self, image: &str, cve: &str, version: &str) {
+        match &self.database.triage_vuln(cve, image, version) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Problem inserting row: {e:?}"),
+        };
+
+        self.query(
+            &Option::Some(String::from_str(image).unwrap()),
+            &Option::None,
+            &Option::None,
+            &Option::Some(String::from_str(version).unwrap()),
+        );
     }
 }
