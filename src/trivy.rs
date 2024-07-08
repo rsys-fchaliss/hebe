@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use spinoff::{spinners, Color, Spinner};
 
 use std::process::Command;
 #[allow(dead_code)]
@@ -19,6 +20,7 @@ struct TrivyOutput {
     results: Vec<TrivyResult>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct TrivyResult {
     #[serde(rename = "Target")]
@@ -41,7 +43,9 @@ pub struct Vulnerability {
     pub severity: String,
 }
 
+
 pub fn scan_image(image_name: &str) -> Vec<TrivyResult> {
+    let mut spinner = Spinner::new(spinners::Dots7, "Scanning image ...", Color::Green);
     let output = Command::new("trivy")
         .arg("image")
         .arg("-f")
@@ -49,6 +53,7 @@ pub fn scan_image(image_name: &str) -> Vec<TrivyResult> {
         .arg(image_name)
         .output()
         .expect("Failed to execute Trivy");
+    spinner.update(spinners::Dots7, "Image scanning... Done!", Color::Green);
 
     if output.status.success() {
         let output: TrivyOutput =

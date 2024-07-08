@@ -15,3 +15,4 @@ rusqlite = "0.31.0"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 tabled = "0.15"
+spinoff = "0.8.0"
