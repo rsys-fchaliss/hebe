@@ -53,7 +53,7 @@ pub fn scan_image(image_name: &str) -> Vec<TrivyResult> {
         .arg(image_name)
         .output()
         .expect("Failed to execute Trivy");
-    spinner.update(spinners::Dots7, "Done!", Color::Green);
+    spinner.update(spinners::Dots7, "Image scanning... Done!", Color::Green);
 
     if output.status.success() {
         let output: TrivyOutput =
