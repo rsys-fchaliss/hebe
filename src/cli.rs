@@ -24,7 +24,9 @@ struct Opt {
 enum Commands {
     Scan {
         #[clap(long)]
-        image: String,
+        image: Option<String>,
+        #[clap(long)]
+        sbom: Option<String>,
     },
     QueryVulnerabilities {
         #[clap(long)]
@@ -67,7 +69,7 @@ impl CLIWrapper {
 
     pub fn execute(&self) -> () {
         match &self.app.command {
-            Commands::Scan { image } => self.scan_and_persist(image),
+            Commands::Scan { image, sbom } => self.scan_and_persist(image, sbom),
             Commands::QueryVulnerabilities {
                 image,
                 cve,
@@ -82,8 +84,8 @@ impl CLIWrapper {
         }
     }
 
-    fn scan_and_persist(&self, image: &str) {
-        let results = trivy::scan_image(image);
+    fn scan_and_persist(&self, image: &Option<String>, sbom_path: &Option<String>) {
+        let (image_name, results) = trivy::scan_image(image, sbom_path);
         for result in results {
             match result.vulnerabilities {
                 Some(vulns) => {
@@ -98,17 +100,18 @@ impl CLIWrapper {
                             Err(e) => eprintln!("Problem inserting row: {e:?}"),
                         };
 
-                        match &self
-                            .database
-                            .insert_vuln(image, &vuln.id, &vuln.installed_version)
-                        {
+                        match &self.database.insert_vuln(
+                            &image_name,
+                            &vuln.id,
+                            &vuln.installed_version,
+                        ) {
                             Ok(_) => {}
                             Err(e) => eprintln!("Problem inserting row: {e:?}"),
                         };
                     }
 
                     self.query(
-                        &Option::Some(String::from_str(image).unwrap()),
+                        &Some(image_name.clone()),
                         &Option::None,
                         &Option::None,
                         &Option::None,
